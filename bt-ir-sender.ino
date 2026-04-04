@@ -57,6 +57,33 @@ void sendIrCode(const char *label, uint64_t code) {
   Serial.println(String((uint32_t)code, HEX));
 }
 
+// 處理單一藍芽命令。協定以單字元為主，換行會被忽略。
+void handleCommand(const String &cmd) {
+  Serial.print("收到: \"");
+  Serial.print(cmd);
+  Serial.print("\"");
+
+  // 優先檢查組合指令
+  if (handleComboCommand(cmd)) {
+    return;
+  }
+
+  uint64_t irCode = lookupIrCode(cmd);
+
+  if (irCode != 0) {
+    Serial.println(" → 執行單一指令");
+    sendIrCode(cmd.c_str(), irCode);
+
+    SerialBT.print("OK: ");
+    SerialBT.println(cmd);
+  } else {
+    Serial.println(" → 未知指令，忽略");
+    SerialBT.print("ERR: unknown command \"");
+    SerialBT.print(cmd);
+    SerialBT.println("\"");
+  }
+}
+
 // 處理組合指令，回傳 true 表示已處理
 bool handleComboCommand(const String &cmd) {
   if (cmd == "3") {
@@ -127,42 +154,14 @@ void setup() {
 }
 
 void loop() {
-  if (SerialBT.available()) {
-    String rxValue = "";
+  while (SerialBT.available()) {
+    char c = SerialBT.read();
 
-    while (SerialBT.available()) {
-      char c = SerialBT.read();
-      // 過濾換行與回車字元
-      if (c != '\n' && c != '\r') {
-        rxValue += c;
-      }
-    }
-
-    if (rxValue.length() > 0) {
-      Serial.print("收到: \"");
-      Serial.print(rxValue);
-      Serial.print("\"");
-
-      // 優先檢查組合指令
-      if (handleComboCommand(rxValue)) {
-        // 組合指令已處理
-      } else {
-        uint64_t irCode = lookupIrCode(rxValue);
-
-        if (irCode != 0) {
-          irsend.sendNEC(irCode, 32);
-          Serial.print(" → 發射 NEC 0x");
-          Serial.println(String((uint32_t)irCode, HEX));
-
-          SerialBT.print("OK: ");
-          SerialBT.println(rxValue);
-        } else {
-          Serial.println(" → 未知指令，忽略");
-          SerialBT.print("ERR: unknown command \"");
-          SerialBT.print(rxValue);
-          SerialBT.println("\"");
-        }
-      }
+    // 單字元命令協定：逐字元立即處理，避免快速連送時被拼成同一筆。
+    if (c != '\n' && c != '\r') {
+      String cmd = "";
+      cmd += c;
+      handleCommand(cmd);
     }
   }
 
