@@ -6,7 +6,7 @@
  * 
  * 手機端可使用「Serial Bluetooth Terminal」等 SPP App 連線。
  * 傳送 "1", "0", "+", "-", "m" 等指令即可發射紅外線。
- * 組合指令："3" = 1→0, "4" = 1→+→0, "5" = 1→+→+→0（含延遲）
+ * 組合指令："3" = 1→0, "4" = 1→+→0, "5" = 1→+→+→0, "6" = 1→+→+→+→0（含延遲）
  * 
  * 硬體接線：
  *   ESP32 GPIO 32 ──[470Ω]── BC337-40 Base
@@ -122,6 +122,22 @@ bool handleComboCommand(const String &cmd) {
     SerialBT.println("OK: 5");
     return true;
   }
+  if (cmd == "6") {
+    // "6": 送1 → 等0.2s → 送+ → 等0.2s → 送+ → 等0.2s → 送+ → 等1s → 送0
+    Serial.println(" → 執行組合指令 [1 → + → + → + → 0]");
+    SerialBT.println("combo: 1 -> + -> + -> + -> 0");
+    sendIrCode("1", lookupIrCode("1"));
+    delay(200);
+    sendIrCode("+", lookupIrCode("+"));
+    delay(200);
+    sendIrCode("+", lookupIrCode("+"));
+    delay(200);
+    sendIrCode("+", lookupIrCode("+"));
+    delay(1000);
+    sendIrCode("0", lookupIrCode("0"));
+    SerialBT.println("OK: 6");
+    return true;
+  }
   return false;
 }
 
@@ -165,6 +181,7 @@ void setup() {
   Serial.println("  \"3\" → 1 → 等0.5s → 0");
   Serial.println("  \"4\" → 1 → 等0.5s → + → 等1s → 0");
   Serial.println("  \"5\" → 1 → 等0.2s → + → 等0.2s → + → 等1s → 0");
+  Serial.println("  \"6\" → 1 → 等0.2s → + → 等0.2s → + → 等0.2s → + → 等1s → 0");
   Serial.println("-----------------------------------");
 }
 
